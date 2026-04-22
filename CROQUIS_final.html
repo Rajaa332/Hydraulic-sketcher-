@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hydraulic Station Sketcher & Dimensioning Tool</title>
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --panel: #ffffff;
+    --border: #d0d5dd;
+    --accent: #3b6fd4;
+    --accent2: #2aada5;
+    --text: #1a1a2e;
+    --muted: #6b7280;
+    --danger: #e55;
+    --success: #2a9d5c;
+    --toolbar-w: 74px;
+    --props-w: 300px;
+    --topbar-h: 48px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .topbar {
+    height: var(--topbar-h);
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    gap: 6px;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  .topbar h1 { font-size: 13px; font-weight: 700; margin-right: 10px; color: var(--accent); white-space: nowrap; }
+  .btn {
+    padding: 6px 11px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: #f4f6fa;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    transition: all .15s;
+  }
+  .btn:hover { background: #e8edf7; border-color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn.primary:hover { background: #2a5bbf; }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover { background: var(--danger); color: #fff; }
+  .sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  .toolbar {
+    width: var(--toolbar-w);
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .tool-btn {
+    width: 62px;
+    height: 58px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--muted);
+    transition: all .15s;
+    font-size: 9px;
+    font-weight: 500;
+  }
+  .tool-btn:hover { background: #eef1f8; color: var(--text); }
+  .tool-btn.active { border-color: var(--accent); background: rgba(91,141,239,.12); color: var(--accent); }
+  .tool-btn svg { width: 22px; height: 22px; }
+  .tool-group-label {
+    font-size: 8px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    margin: 6px 0 2px;
+    text-align: center;
+  }
+
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #f5f5f0;
+  }
+  #canvas { display: block; cursor: crosshair; }
+
+  .props {
+    width: var(--props-w);
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    padding: 12px;
+    overflow-y: auto;
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+  .props h3 {
+    font-size: 10px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .prop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .prop-label { width: 70px; color: var(--muted); font-size: 10px; flex-shrink: 0; }
+  .prop-input {
+    flex: 1;
+    padding: 5px 7px;
+    background: #f8f9fc;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 11px;
+    min-width: 0;
+  }
+  .prop-input:focus { border-color: var(--accent); outline: none; }
+  .prop-textarea {
+    flex: 1;
+    padding: 5px 7px;
+    background: #f8f9fc;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 11px;
+    resize: vertical;
+    min-height: 40px;
+    font-family: inherit;
+  }
+
+  .status {
+    height: 22px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 10px;
+    color: var(--muted);
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .toggle-wrap { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+  .toggle-wrap input { display: none; }
+  .tgl { width: 28px; height: 15px; background: #bbb; border-radius: 8px; position: relative; cursor: pointer; transition: .2s; }
+  .tgl::after { content: ''; position: absolute; width: 11px; height: 11px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: .2s; }
+  .toggle-wrap input:checked + .tgl { background: var(--accent); }
+  .toggle-wrap input:checked + .tgl::after { left: 15px; }
+
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .modal-box {
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 22px;
+    max-width: 420px;
+    width: 92%;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px rgba(0,0,0,.15);
+  }
+  .modal-box h3 { color: var(--accent); margin-bottom: 10px; }
+  .modal-box .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+
+  .notify {
+    position: fixed; bottom: 36px; right: 20px;
+    background: var(--success); color: #fff;
+    padding: 9px 16px; border-radius: 6px;
+    font-size: 11px; z-index: 200;
+    animation: slideUp .2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+
+  /* Delete button overlay */
+  #deleteBtn {
+    position: absolute;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: #e55;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    color: #fff;
+    z-index: 20;
+    box-shadow: 0 2px 6px rgba(0,0,0,.45);
+    transform: translate(-50%, -50%);
+    transition: background .15s, transform .1s;
+    user-select: none;
+  }
+  #deleteBtn:hover {
+    background: #c00;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>⚙ Hydraulic Station Sketcher</h1>
+  <div class="sep"></div>
+  <label class="toggle-wrap"><input type="checkbox" id="togGrid" checked><span class="tgl"></span>Grid</label>
+  <label class="toggle-wrap"><input type="checkbox" id="togSnap" checked><span class="tgl"></span>Snap</label>
+  <div class="sep"></div>
+  <button class="btn" id="btnCalc">📐 Calc</button>
+  <button class="btn" id="btnSave">💾 Save JSON</button>
+  <button class="btn" id="btnLoad">📂 Load</button>
+  <div class="sep"></div>
+  <button class="btn primary" id="btnExport">📤 Export PNG</button>
+</div>
+
+<div class="main">
+  <div class="toolbar" id="toolbar">
+    <div class="tool-group-label">Select</div>
+    <button class="tool-btn active" data-tool="select">
+      <svg viewBox="0 0 24 24"><path d="M4 4l16 16M4 4l8 0 2 6 6 2 0 8z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      Select
+    </button>
+    <div class="tool-group-label">Components</div>
+    <button class="tool-btn" data-tool="pump">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 8l5 4-5 4z" fill="none" stroke="currentColor" stroke-width="2"/><line x1="19" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/></svg>
+      Pump
+    </button>
+    <button class="tool-btn" data-tool="tank">
+      <svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="14" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 6l8-4 8 4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 14h12" stroke="currentColor" stroke-width="1"/></svg>
+      Tank
+    </button>
+    <button class="tool-btn" data-tool="pipe">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      Pipe
+    </button>
+    <button class="tool-btn" data-tool="valve">
+      <svg viewBox="0 0 24 24"><path d="M4 12l8-6 8 6z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 6v12" stroke="currentColor" stroke-width="2"/></svg>
+      Valve
+    </button>
+    <button class="tool-btn" data-tool="break">
+      <svg viewBox="0 0 24 24"><line x1="2" y1="12" x2="8" y2="12" stroke="currentColor" stroke-width="2"/><path d="M8 12l3-4v8l3-4v8l3-4" fill="none" stroke="currentColor" stroke-width="2"/><line x1="17" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/></svg>
+      Pipe Break
+    </button>
+    <div class="tool-group-label">Markup</div>
+    <button class="tool-btn" data-tool="dimH">
+      <svg viewBox="0 0 24 24"><line x1="20" y1="6" x2="20" y2="18" stroke="currentColor" stroke-width="2"/><path d="M17 9l3-3 3 3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17 15l3 3 3-3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      Dim H
+    </button>
+    <button class="tool-btn" data-tool="dimW">
+      <svg viewBox="0 0 24 24"><line x1="6" y1="20" x2="18" y2="20" stroke="currentColor" stroke-width="2"/><path d="M9 17l-3 3 3 3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15 17l3 3-3 3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      Dim W
+    </button>
+    <button class="tool-btn" data-tool="label">
+      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="7" y1="10" x2="17" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="14" x2="14" y2="14" stroke="currentColor" stroke-width="1.5"/></svg>
+      Label
+    </button>
+    <button class="tool-btn" data-tool="text">
+      <svg viewBox="0 0 24 24"><text x="6" y="17" font-size="14" fill="none" stroke="currentColor" stroke-width="1.5" font-family="serif">T</text></svg>
+      Text
+    </button>
+    <button class="tool-btn" data-tool="compList">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><line x1="7" y1="8" x2="17" y2="8" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="12" x2="17" y2="12" stroke="currentColor" stroke-width="1.5"/><line x1="7" y1="16" x2="13" y2="16" stroke="currentColor" stroke-width="1.5"/></svg>
+      Comp List
+    </button>
+  </div>
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="canvas"></canvas>
+    <div id="deleteBtn" title="Delete component">✕</div>
+  </div>
+
+  <div class="props">
+    <h3 id="propsTitle">Properties</h3>
+    <div id="propsContent">
+      <p style="color:var(--muted);font-size:10px;">Select or place an element to edit properties.</p>
+    </div>
+  </div>
+</div>
+
+<div class="status">
+  <span id="stTool">Tool: Select</span>
+  <span id="stCoords">X: 0 Y: 0</span>
+  <span id="stCount">Items: 0</span>
+  <span id="stMsg"></span>
+</div>
+
+<div id="modalHost"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ========== STATE ========== */
+const S = {
+  els: [],
+  sel: null,
+  tool: 'select',
+  grid: 20,
+  showGrid: true,
+  snap: true,
+  zoom: 1,
+  pan: {x:0, y:0},
+  dragging: false,
+  dragOff: {x:0,y:0},
+  idCounter: 1,
+  pipePoints: [],
+  isDrawingPipe: false,
+  compListItems: []
+};
+
+/* ========== DOM ========== */
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvasWrap');
+const deleteBtn = document.getElementById('deleteBtn');
+
+/* ========== DELETE BUTTON POSITIONING ========== */
+function positionDeleteBtn(){
+  if(!S.sel){
+    deleteBtn.style.display = 'none';
+    return;
+  }
+  const el = S.els.find(e=>e.id===S.sel);
+  if(!el){ deleteBtn.style.display = 'none'; return; }
+
+  const b = getBounds(el);
+  // Convert world coords to canvas screen coords
+  let wx, wy; // world position of top-right corner
+  if(el.type === 'pipe' && el.points && el.points.length){
+    wx = b.x + b.w;
+    wy = b.y;
+  } else {
+    wx = el.x + b.x + b.w;
+    wy = el.y + b.y;
+  }
+
+  const screenX = wx * S.zoom + S.pan.x;
+  const screenY = wy * S.zoom + S.pan.y;
+
+  deleteBtn.style.display = 'flex';
+  deleteBtn.style.left = screenX + 'px';
+  deleteBtn.style.top  = screenY + 'px';
+}
+
+deleteBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  if(S.sel) window.delEl(S.sel);
+});
+
+function resize(){
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+/* ========== COORDINATE HELPERS ========== */
+function toWorld(e){
+  const r = canvas.getBoundingClientRect();
+  return { x:(e.clientX-r.left - S.pan.x)/S.zoom, y:(e.clientY-r.top - S.pan.y)/S.zoom };
+}
+function snap(v){ return S.snap ? Math.round(v/S.grid)*S.grid : v; }
+
+/* ========== DRAWING ENGINE ========== */
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save();
+  ctx.translate(S.pan.x, S.pan.y);
+  ctx.scale(S.zoom, S.zoom);
+
+  if(S.showGrid) drawGrid();
+  drawElements();
+  drawSelection();
+
+  ctx.restore();
+  updateStatus();
+  positionDeleteBtn();
+}
+
+function drawGrid(){
+  const w = canvas.width/S.zoom, h = canvas.height/S.zoom;
+  ctx.strokeStyle = '#e0e0dc';
+  ctx.lineWidth = .5/S.zoom;
+  ctx.beginPath();
+  for(let x=0;x<w;x+=S.grid){ ctx.moveTo(x,0); ctx.lineTo(x,h); }
+  for(let y=0;y<h;y+=S.grid){ ctx.moveTo(0,y); ctx.lineTo(w,y); }
+  ctx.stroke();
+}
+
+function drawElements(){
+  S.els.forEach(el => {
+    ctx.save();
+    ctx.translate(el.x, el.y);
+    const d = el.data || {};
+    switch(el.type){
+      case 'pump': drawPump(el, d); break;
+      case 'tank': drawTank(el, d); break;
+      case 'pipe': drawPipe(el); break;
+      case 'valve': drawValve(el, d); break;
+      case 'break': drawBreak(el); break;
+      case 'dimH': drawDimH(el, d); break;
+      case 'dimW': drawDimW(el, d); break;
+      case 'label': drawLabelBox(el, d); break;
+      case 'text': drawText(el, d); break;
+      case 'compList': drawCompList(el, d); break;
+    }
+    ctx.restore();
+  });
+}
+
+/* --- BARGE --- */
+/* --- PUMP --- */
+function drawPump(el, d){
+  const r = d.radius || 18;
+  ctx.strokeStyle='#333'; ctx.lineWidth=2;
+
+  ctx.beginPath();
+  ctx.arc(0,0,r,0,Math.PI*2);
+  ctx.stroke();
+
+  // Triangle
+  ctx.beginPath();
+  ctx.moveTo(r*.6,0);
+  ctx.lineTo(-r*.3,-r*.55);
+  ctx.lineTo(-r*.3,r*.55);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Shaft
+  ctx.beginPath();
+  ctx.moveTo(r,0); ctx.lineTo(r+20,0);
+  ctx.stroke();
+
+  // Suction pipe
+  ctx.beginPath();
+  ctx.moveTo(0,-r); ctx.lineTo(0,-r-30); ctx.lineTo(-30,-r-30);
+  ctx.stroke();
+
+  if(d.label){
+    ctx.fillStyle='#333'; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(d.label, 0, -r-38);
+  }
+}
+
+/* --- TANK --- */
+function drawTank(el, d){
+  const w = d.width||100, h = d.height||140, roofH = d.roofHeight||20;
+  ctx.strokeStyle='#333'; ctx.lineWidth=2;
+
+  // Body
+  ctx.strokeRect(-w/2, roofH-h/2, w, h);
+
+  // Roof
+  ctx.beginPath();
+  ctx.moveTo(-w/2, roofH-h/2);
+  ctx.lineTo(0, -h/2);
+  ctx.lineTo(w/2, roofH-h/2);
+  ctx.stroke();
+
+  // Liquid level
+  const fill = d.fillLevel || .6;
+  const ly = roofH - h/2 + h*(1-fill);
+  ctx.strokeStyle='#5577aa'; ctx.lineWidth=1;
+  // Water surface line
+  ctx.beginPath(); ctx.moveTo(-w/2+3, ly); ctx.lineTo(w/2-3, ly); ctx.stroke();
+  // Waves inside
+  ctx.strokeStyle='#88aacc'; ctx.lineWidth=.8;
+  for(let wave=0; wave<6; wave++){
+    ctx.beginPath();
+    const by = ly + 6 + wave*10;
+    if(by > roofH+h/2-3) break;
+    for(let x=-w/2+5; x<w/2-5; x+=2){
+      const y = by + Math.sin(x*.2+wave*2)*2.5;
+      x===-w/2+5 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+
+  if(d.label){
+    ctx.fillStyle='#333'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(d.label, 0, -h/2-6);
+  }
+}
+
+/* --- PIPE --- */
+function drawPipe(el){
+  const pts = el.points || [];
+  if(pts.length < 2) return;
+  ctx.strokeStyle='#555'; ctx.lineWidth=3; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // Direction arrows every 80px
+  ctx.fillStyle='#555';
+  let totalDist=0;
+  for(let i=1;i<pts.length;i++){
+    const dx=pts[i].x-pts[i-1].x, dy=pts[i].y-pts[i-1].y;
+    const seg=Math.sqrt(dx*dx+dy*dy);
+    let d=0;
+    while(totalDist+d+seg > totalDist+80){
+      const frac = 80/(totalDist+d+seg-totalDist);
+      const ax = pts[i-1].x + dx*frac;
+      const ay = pts[i-1].y + dy*frac;
+      const ang = Math.atan2(dy,dx);
+      ctx.beginPath();
+      ctx.moveTo(ax+Math.cos(ang)*8, ay+Math.sin(ang)*8);
+      ctx.lineTo(ax+Math.cos(ang+2.3)*7, ay+Math.sin(ang+2.3)*7);
+      ctx.lineTo(ax+Math.cos(ang-2.3)*7, ay+Math.sin(ang-2.3)*7);
+      ctx.closePath(); ctx.fill();
+      totalDist += 80;
+      break;
+    }
+    totalDist += seg;
+  }
+}
+
+/* --- VALVE --- */
+function drawValve(el, d){
+  const w = d.width||40, h = d.height||50;
+  ctx.strokeStyle='#333'; ctx.lineWidth=2;
+
+  // Bow-tie
+  ctx.beginPath();
+  ctx.moveTo(-w/2, -h/3);
+  ctx.lineTo(0, 0);
+  ctx.lineTo(w/2, -h/3);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(0, h/3);
+  ctx.stroke();
+
+  // Connection pipes
+  ctx.beginPath();
+  ctx.moveTo(-w/2-20, 0); ctx.lineTo(-w/2, 0);
+  ctx.moveTo(w/2, 0); ctx.lineTo(w/2+20, 0);
+  ctx.stroke();
+
+  if(d.actuator){
+    ctx.strokeStyle='#c55'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, h/3); ctx.lineTo(0, h/3+18);
+    ctx.stroke();
+    ctx.strokeRect(-8, h/3+18, 16, 10);
+  }
+
+  if(d.label){
+    ctx.fillStyle='#333'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(d.label, 0, -h/3-8);
+  }
+}
+
+/* --- PIPE BREAK --- */
+function drawBreak(el){
+  ctx.strokeStyle='#333'; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(-15, 0);
+  ctx.lineTo(-5, 0);
+  ctx.lineTo(0, -12);
+  ctx.lineTo(8, -4);
+  ctx.lineTo(5, 4);
+  ctx.lineTo(15, 4);
+  ctx.stroke();
+}
+
+/* --- DIMENSION H (vertical) --- */
+function drawDimH(el, d){
+  const val = d.value || '';
+  ctx.strokeStyle='#c55'; ctx.fillStyle='#c55';
+  ctx.lineWidth=1.5;
+
+  const topY = -Math.abs(d.height||60)/2;
+  const botY = Math.abs(d.height||60)/2;
+  const offX = d.offset || 18;
+
+  // Main line
+  ctx.beginPath();
+  ctx.moveTo(offX, topY); ctx.lineTo(offX, botY);
+  ctx.stroke();
+
+  // Arrow heads
+  const as = 6;
+  ctx.beginPath();
+  ctx.moveTo(offX, topY);
+  ctx.lineTo(offX-as, topY+as*1.5);
+  ctx.moveTo(offX, topY);
+  ctx.lineTo(offX+as, topY+as*1.5);
+  ctx.moveTo(offX, botY);
+  ctx.lineTo(offX-as, botY-as*1.5);
+  ctx.moveTo(offX, botY);
+  ctx.lineTo(offX+as, botY-as*1.5);
+  ctx.stroke();
+
+  // Tick marks
+  ctx.beginPath();
+  ctx.moveTo(0, topY); ctx.lineTo(offX, topY);
+  ctx.moveTo(0, botY); ctx.lineTo(offX, botY);
+  ctx.lineWidth=1; ctx.stroke();
+
+  // Label
+  ctx.font='bold 14px sans-serif'; ctx.textAlign='left';
+  ctx.fillText(val, offX+6, 4);
+}
+
+/* --- DIMENSION W (horizontal) --- */
+function drawDimW(el, d){
+  const val = d.value || '';
+  ctx.strokeStyle='#c55'; ctx.fillStyle='#c55';
+  ctx.lineWidth=1.5;
+
+  const leftX = -Math.abs(d.width||80)/2;
+  const rightX = Math.abs(d.width||80)/2;
+  const offY = d.offset || 18;
+
+  ctx.beginPath();
+  ctx.moveTo(leftX, offY); ctx.lineTo(rightX, offY);
+  ctx.stroke();
+
+  const as = 6;
+  ctx.beginPath();
+  ctx.moveTo(leftX, offY);
+  ctx.lineTo(leftX+as*1.5, offY-as);
+  ctx.moveTo(leftX, offY);
+  ctx.lineTo(leftX+as*1.5, offY+as);
+  ctx.moveTo(rightX, offY);
+  ctx.lineTo(rightX-as*1.5, offY-as);
+  ctx.moveTo(rightX, offY);
+  ctx.lineTo(rightX-as*1.5, offY+as);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(leftX, 0); ctx.lineTo(leftX, offY);
+  ctx.moveTo(rightX, 0); ctx.lineTo(rightX, offY);
+  ctx.lineWidth=1; ctx.stroke();
+
+  ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+  ctx.fillText(val, 0, offY-6);
+}
+
+/* --- LABEL BOX --- */
+function drawLabelBox(el, d){
+  const text = d.text || 'Label';
+  ctx.font='bold 12px sans-serif';
+  const m = ctx.measureText(text);
+  const w = m.width + 16, h = 24;
+  ctx.fillStyle='rgba(255,255,255,.85)';
+  ctx.strokeStyle='#333'; ctx.lineWidth=1;
+  ctx.fillRect(-w/2, -h/2, w, h);
+  ctx.strokeRect(-w/2, -h/2, w, h);
+  ctx.fillStyle='#333'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text, 0, 0);
+}
+
+/* --- TEXT --- */
+function drawText(el, d){
+  ctx.fillStyle = d.color || '#333';
+  ctx.font = (d.size||14)+'px '+(d.family||'sans-serif');
+  ctx.textAlign = d.align || 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(d.text || 'Text', 0, 0);
+}
+
+/* --- COMPONENT LIST --- */
+function drawCompList(el, d){
+  const lines = (d.lines || ['Item 1x']).filter(Boolean);
+  const title = d.title || 'Components';
+  const lineH = 18, pad = 10;
+  const w = d.width || 200;
+
+  ctx.font='bold 13px sans-serif';
+  const tw = ctx.measureText(title).width;
+
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  ctx.strokeStyle='#333'; ctx.lineWidth=1.5;
+  ctx.fillRect(-w/2, -pad, w, (lines.length+1)*lineH + pad*2);
+  ctx.strokeRect(-w/2, -pad, w, (lines.length+1)*lineH + pad*2);
+
+  ctx.fillStyle='#333'; ctx.textAlign='left';
+  ctx.font='bold 13px sans-serif';
+  ctx.fillText(title, -w/2+pad, -pad+14);
+
+  ctx.font='12px sans-serif';
+  lines.forEach((l,i) => {
+    ctx.fillText(l, -w/2+pad, -pad+14+(i+1)*lineH);
+  });
+}
+
+/* --- SELECTION --- */
+function drawSelection(){
+  if(!S.sel) return;
+  const el = S.els.find(e=>e.id===S.sel);
+  if(!el) return;
+  ctx.strokeStyle='#5b8def'; ctx.lineWidth=2/S.zoom;
+  ctx.setLineDash([5/S.zoom, 3/S.zoom]);
+  const b = getBounds(el);
+  ctx.strokeRect(b.x-6/S.zoom, b.y-6/S.zoom, b.w+12/S.zoom, b.h+12/S.zoom);
+  ctx.setLineDash([]);
+}
+
+function getBounds(el){
+  const d = el.data||{};
+  let x=-50,y=-30,w=100,h=60;
+  switch(el.type){
+    case 'pump': const r=d.radius||18; x=-r-20; y=-r-38; w=r*2+20; h=r*2+38; break;
+    case 'tank': w=d.width||100; h=d.height||140; x=-w/2; y=-h/2; break;
+    case 'pipe': if(el.points&&el.points.length){
+      const xs=el.points.map(p=>p.x), ys=el.points.map(p=>p.y);
+      x=Math.min(...xs); y=Math.min(...ys); w=Math.max(...xs)-x; h=Math.max(...ys)-y;
+    } break;
+    case 'valve': w=(d.width||40)+40; h=d.height||50; x=-w/2; y=-h/2; break;
+    case 'dimH': case 'dimW': case 'label': case 'text': x=-40; y=-20; w=80; h=40; break;
+    case 'compList': w=d.width||200; h=60; x=-w/2; y=-30; break;
+  }
+  return {x,y,w,h};
+}
+
+/* ========== HIT TESTING ========== */
+function hitTest(pos){
+  for(let i=S.els.length-1; i>=0; i--){
+    const el = S.els[i];
+    const b = getBounds(el);
+    if(pos.x>=b.x && pos.x<=b.x+b.w && pos.y>=b.y && pos.y<=b.y+b.h) return el;
+  }
+  return null;
+}
+
+/* ========== INTERACTION ========== */
+canvas.addEventListener('mousedown', e=>{
+  const pos = toWorld(e);
+
+  if(S.tool === 'select'){
+    const hit = hitTest(pos);
+    if(hit){
+      S.sel = hit.id;
+      S.dragging = true;
+      S.dragOff = {x: pos.x - hit.x, y: pos.y - hit.y};
+      updateProps(hit);
+    } else {
+      S.sel = null;
+      updateProps(null);
+    }
+    draw();
+    return;
+  }
+
+  if(S.tool === 'pipe'){
+    if(!S.isDrawingPipe){
+      S.isDrawingPipe = true;
+      S.pipePoints = [{x:snap(pos.x), y:snap(pos.y)}];
+      S.sel = null;
+    } else {
+      S.pipePoints.push({x:snap(pos.x), y:snap(pos.y)});
+      draw();
+    }
+    return;
+  }
+
+  // Place element
+  const sp = {x:snap(pos.x), y:snap(pos.y)};
+  const el = createElement(sp);
+  if(el){
+    S.els.push(el);
+    S.sel = el.id;
+    updateProps(el);
+  }
+  draw();
+});
+
+canvas.addEventListener('mousemove', e=>{
+  const pos = toWorld(e);
+  document.getElementById('stCoords').textContent = `X:${Math.round(pos.x)} Y:${Math.round(pos.y)}`;
+
+  if(S.dragging && S.sel){
+    const el = S.els.find(x=>x.id===S.sel);
+    if(el){
+      if(el.type==='pipe' && el.points){
+        const dx=pos.x-S.dragOff.x-el.points[0].x, dy=pos.y-S.dragOff.y-el.points[0].y;
+        el.points = el.points.map(p=>({x:snap(p.x+dx), y:snap(p.y+dy)}));
+      } else {
+        el.x = snap(pos.x - S.dragOff.x);
+        el.y = snap(pos.y - S.dragOff.y);
+      }
+      draw();
+    }
+  }
+
+  if(S.isDrawingPipe){
+    // Preview line
+    draw();
+    ctx.save();
+    ctx.translate(S.pan.x,S.pan.y);
+    ctx.scale(S.zoom,S.zoom);
+    ctx.strokeStyle='rgba(85,85,85,.5)'; ctx.lineWidth=3; ctx.setLineDash([6,4]);
+    const pts = S.pipePoints;
+    ctx.beginPath();
+    ctx.moveTo(pts[pts.length-1].x, pts[pts.length-1].y);
+    ctx.lineTo(snap(pos.x), snap(pos.y));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+});
+
+canvas.addEventListener('mouseup', ()=>{
+  S.dragging = false;
+});
+
+canvas.addEventListener('dblclick', e=>{
+  if(S.isDrawingPipe && S.pipePoints.length >= 2){
+    S.els.push({
+      id: S.idCounter++, type:'pipe', x:0, y:0,
+      points: S.pipePoints.map(p=>({x:p.x, y:p.y})),
+      data: {}
+    });
+    S.isDrawingPipe = false;
+    S.pipePoints = [];
+    draw();
+    notify('Pipe placed');
+  }
+});
+
+canvas.addEventListener('contextmenu', e=>{
+  e.preventDefault();
+  if(S.isDrawingPipe && S.pipePoints.length >= 2){
+    S.els.push({id:S.idCounter++, type:'pipe', x:0, y:0, points:[...S.pipePoints], data:{}});
+    S.isDrawingPipe = false; S.pipePoints=[];
+    draw(); notify('Pipe placed');
+  }
+});
+
+/* ========== ELEMENT CREATION ========== */
+function createElement(pos){
+  const t = S.tool;
+  const base = {id:S.idCounter++, x:pos.x, y:pos.y, data:{}};
+
+  switch(t){
+    case 'pump': base.type='pump'; base.data={radius:18,label:'Pump'}; break;
+    case 'tank': base.type='tank'; base.data={width:100,height:140,roofHeight:20,fillLevel:.6,label:'Tank'}; break;
+    case 'valve': base.type='valve'; base.data={width:40,height:50,label:'Valve',actuator:false}; break;
+    case 'break': base.type='break'; break;
+    case 'dimH': {
+      const v = prompt('Enter height value (e.g. 8.5 m):','8.5 m');
+      const h = parseFloat(prompt('Height in px:', '80'))||80;
+      base.type='dimH'; base.data={value:v||'8.5 m', height:h, offset:18};
+      break;
+    }
+    case 'dimW': {
+      const v = prompt('Enter width value (e.g. 150 m):','150 m');
+      const w = parseFloat(prompt('Width in px:', '120'))||120;
+      base.type='dimW'; base.data={value:v||'150 m', width:w, offset:18};
+      break;
+    }
+    case 'label': {
+      const t = prompt('Label text:','Title');
+      base.type='label'; base.data={text:t||'Label'};
+      break;
+    }
+    case 'text': {
+      const t = prompt('Text content:','Some text');
+      const sz = parseInt(prompt('Font size:', '14'))||14;
+      base.type='text'; base.data={text:t||'Text', size:sz, color:'#333', align:'left', family:'sans-serif'};
+      break;
+    }
+    case 'compList': {
+      const title = prompt('List title:','Suction Pipeline');
+      const linesStr = prompt('Items (one per line, use comma or press Enter):\nExample: 150m\\n+2m Elevation Change\\nGate Valve 1x','150m\n+2m Elevation Change\nGate Valve 1x\nCheck Valve 1x\n90° Elbow 4x');
+      const lines = (linesStr||'').split('\n').filter(Boolean);
+      base.type='compList'; base.data={title:title||'Components', lines, width:240};
+      break;
+    }
+    default: return null;
+  }
+  return base;
+}
+
+/* ========== PROPERTIES PANEL ========== */
+function updateProps(el){
+  const c = document.getElementById('propsContent');
+  const t = document.getElementById('propsTitle');
+  if(!el){
+    t.textContent='Properties';
+    c.innerHTML='<p style="color:var(--muted);font-size:10px;">Select or place an element.</p>';
+    return;
+  }
+  t.textContent = el.type.toUpperCase() + ' #' + el.id;
+  let h = '';
+
+  if(el.type !== 'pipe'){
+    h += pr('X','number',el.x, el.id,'x');
+    h += pr('Y','number',el.y, el.id,'y');
+  }
+
+  const d = el.data || {};
+
+  switch(el.type){
+    case 'pump':
+      h += pr('Radius','number',d.radius,el.id,'data.radius');
+      h += pr('Label','text',d.label,el.id,'data.label');
+      break;
+    case 'tank':
+      h += pr('Width','number',d.width,el.id,'data.width');
+      h += pr('Height','number',d.height,el.id,'data.height');
+      h += pr('Fill %','number',Math.round(d.fillLevel*100),el.id,'data.fillLevel', v=>v/100);
+      h += pr('Label','text',d.label,el.id,'data.label');
+      break;
+    case 'valve':
+      h += pr('Width','number',d.width,el.id,'data.width');
+      h += pr('Label','text',d.label,el.id,'data.label');
+      h += pr('Actuator','checkbox',d.actuator?1:0,el.id,'data.actuator');
+      break;
+    case 'dimH': case 'dimW':
+      h += pr('Value','text',d.value,el.id,'data.value');
+      h += pr('Size(px)','number',d.height||d.width,el.id,'data.'+(el.type==='dimH'?'height':'width'));
+      h += pr('Offset','number',d.offset,el.id,'data.offset');
+      break;
+    case 'label':
+      h += pr('Text','text',d.text,el.id,'data.text');
+      break;
+    case 'text':
+      h += pr('Text','text',d.text,el.id,'data.text');
+      h += pr('Size','number',d.size,el.id,'data.size');
+      h += pr('Color','color',d.color||'#333',el.id,'data.color');
+      break;
+    case 'compList':
+      h += pr('Title','text',d.title,el.id,'data.title');
+      h += pr('Width','number',d.width,el.id,'data.width');
+      h += `<div class="prop-row"><span class="prop-label">Lines</span><textarea class="prop-textarea" onchange="updateCompLines(${el.id},this.value)">${(d.lines||[]).join('\n')}</textarea></div>`;
+      break;
+  }
+
+  h += `<div style="margin-top:10px;text-align:right;">
+    <button class="btn danger" onclick="window.delEl(${el.id})">🗑 Delete</button>
+  </div>`;
+  c.innerHTML = h;
+}
+
+function pr(label, type, val, id, path, transform){
+  const v = val !== undefined ? val : '';
+  if(type==='checkbox'){
+    return `<div class="prop-row"><span class="prop-label">${label}</span><label class="toggle-wrap" style="margin-left:auto;"><input type="checkbox" ${v?'checked':''} onchange="window.setProp(${id},'${path}',this.checked?1:0)"><span class="tgl"></span></label></div>`;
+    }
+  return `<div class="prop-row"><span class="prop-label">${label}</span><input type="${type}" class="prop-input" value="${v}" onchange="window.setProp(${id},'${path}',${type==='number'?'parseFloat(this.value)':'this.value'}${transform?',v=>'+transform.toString():''})"></div>`;
+}
+
+window.setProp = function(id, path, val){
+  const el = S.els.find(e=>e.id===id);
+  if(!el) return;
+  if(path.startsWith('data.')){
+    el.data[path.slice(5)] = val;
+  } else {
+    el[path] = val;
+  }
+  draw();
+};
+
+window.updateCompLines = function(id, text){
+  const el = S.els.find(e=>e.id===id);
+  if(el && el.data) el.data.lines = text.split('\n').filter(Boolean);
+  draw();
+};
+
+window.delEl = function(id){
+  S.els = S.els.filter(e=>e.id!==id);
+  S.sel = null;
+  updateProps(null);
+  draw();
+};
+
+/* ========== TOOLBAR ========== */
+document.querySelectorAll('.tool-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    S.tool = btn.dataset.tool;
+
+    if(S.tool !== 'select') S.sel = null;
+    if(S.tool === 'pipe' && S.isDrawingPipe){ /* keep drawing */ }
+    else { S.isDrawingPipe = false; S.pipePoints=[]; }
+
+    document.getElementById('stTool').textContent = 'Tool: '+btn.textContent.trim();
+    updateProps(null);
+    draw();
+  });
+});
+
+/* ========== TOPBAR ========== */
+document.getElementById('togGrid').addEventListener('change', e=>{ S.showGrid=e.target.checked; draw(); });
+document.getElementById('togSnap').addEventListener('change', e=>{ S.snap=e.target.checked; });
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const link = document.createElement('a');
+  link.download = 'hydraulic-sketch.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  notify('Exported PNG');
+});
+
+document.getElementById('btnSave').addEventListener('click', ()=>{
+  const data = {elements:S.els, zoom:S.zoom, pan:S.pan};
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.download = 'hydraulic-project.json';
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  notify('Project saved');
+});
+
+document.getElementById('btnLoad').addEventListener('click', ()=>{
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange = e=>{
+    const f = e.target.files[0]; if(!f) return;
+    const r = new FileReader();
+    r.onload = ev=>{
+      try {
+        const d = JSON.parse(ev.target.result);
+        S.els = d.elements||[];
+        S.zoom = d.zoom||1; S.pan = d.pan||{x:0,y:0};
+        S.sel=null; S.idCounter = Math.max(...S.els.map(e=>e.id),0)+1;
+        updateProps(null); draw();
+        notify('Loaded');
+      } catch(err){ alert('Invalid JSON'); }
+    };
+    r.readAsText(f);
+  };
+  inp.click();
+});
+
+document.getElementById('btnCalc').addEventListener('click', ()=>{
+  const pumps = S.els.filter(e=>e.type==='pump');
+  const tank = S.els.find(e=>e.type==='tank');
+  const pipes = S.els.filter(e=>e.type==='pipe');
+
+  const h = document.getElementById('modalHost');
+  h.innerHTML = `
+    <div class="modal-bg" onclick="this.remove()">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <h3>📐 Quick Calculation Summary</h3>
+        <div style="font-size:12px;line-height:1.8;">
+          <p><strong>Components:</strong> ${S.els.length} total</p>
+          <p><strong>Pumps:</strong> ${pumps.length}</p>
+          ${tank?'<p><strong>Tank:</strong> ✓ Connected</p>':''}
+          <p><strong>Pipe segments:</strong> ${pipes.length}</p>
+          <p><strong>Valves:</strong> ${S.els.filter(e=>e.type==='valve').length}</p>
+          <p><strong>Dimension annotations:</strong> ${S.els.filter(e=>e.type.startsWith('dim')).length}</p>
+        </div>
+        <div class="actions"><button class="btn primary" onclick="document.getElementById('modalHost').innerHTML=''">Close</button></div>
+      </div>
+    </div>`;
+});
+
+/* ========== KEYBOARD ========== */
+document.addEventListener('keydown', e=>{
+  if(e.key==='Delete' && S.sel){ window.delEl(S.sel); }
+  if(e.key==='Escape'){
+    S.sel=null; S.tool='select'; S.isDrawingPipe=false; S.pipePoints=[];
+    document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelector('[data-tool="select"]').classList.add('active');
+    document.getElementById('stTool').textContent='Tool: Select';
+    updateProps(null); draw();
+  }
+  if(e.key==='Enter' && S.isDrawingPipe && S.pipePoints.length>=2){
+    S.els.push({id:S.idCounter++,type:'pipe',x:0,y:0,points:[...S.pipePoints],data:{}});
+    S.isDrawingPipe=false; S.pipePoints=[];
+    draw(); notify('Pipe placed');
+  }
+});
+
+/* ========== HELPERS ========== */
+function updateStatus(){
+  document.getElementById('stCount').textContent = 'Items: '+S.els.length;
+}
+
+function notify(msg){
+  const d = document.createElement('div');
+  d.className='notify'; d.textContent=msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 1800);
+}
+
+/* ========== INIT ========== */
+resize();
+
+})();
+</script>
+</body>
+</html>
